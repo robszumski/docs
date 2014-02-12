@@ -99,7 +99,7 @@ BindsTo=apache.1.service
 
 [Service]
 ExecStart=/bin/sh -c "while true; do etcdctl set /services/website/apache1 '{ \"host\": \"%H\", \"port\": 80, \"version\": \"52c7248a14\" }' --ttl 60;sleep 45;done"
-ExecStop=/usr/bin/etcdctl delete /services/website/apache1
+ExecStop=/usr/bin/etcdctl rm /services/website/apache1
 
 [X-Fleet]
 # This unit will always be colocated with apache.1.service
@@ -111,6 +111,30 @@ This unit has a few interesting properties. First, it uses `BindsTo` to link the
 Use of the `%H` variable is the second special property. This causes `systemd` to insert the hostname of the machine running this unit.
 
 The third is a fleet-specific property called `X-ConditionMachineOf`. This property causes the unit to be placed onto the same machine that `apache.1.service` is running on.
+
+Let's verify that each unit was placed on to the same machine as the Apache service is is bound to:
+
+```
+$ fleetctl start apache-discovery.1.service
+$ fleetctl list-units
+UNIT              			 LOAD    ACTIVE  SUB     DESC    MACHINE
+myapp.service  	  			 loaded  active  running -       148a18ff...
+apache.1.service 			 loaded  active  running -       491586a6...
+apache.2.service  			 loaded  active  running -       148a18ff...
+apache-discovery.1.service   loaded  active  running -       491586a6...
+apache-discovery.2.service   loaded  active  running -       148a18ff...
+```
+
+Now let's verify that the service discovery is working correctly:
+
+```
+$ etcdctl ls /services/ --recursive
+/services/website
+/services/website/apache1
+/services/website/apache2
+$ etcdctl get /services/website/apache1
+{ "host": "ip-10-182-139-116", "port": 80, "version": "52c7248a14" }
+```
 
 ## Run an External Service Sidekick
 
